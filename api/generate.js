@@ -19,10 +19,10 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Falta el prompt' });
     }
 
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ GOOGLE_API_KEY no configurada');
+      console.error('❌ GEMINI_API_KEY no configurada');
       return res.status(500).json({ error: 'API Key no configurada' });
     }
 
