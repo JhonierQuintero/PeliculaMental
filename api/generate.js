@@ -35,15 +35,12 @@ export default async function handler(req, res) {
 
     // Construir cuerpo compatible (basado en la doc pública; adáptalo si cambias de versión)
     const body = {
-      // Uso minimalista: prompt en content.parts[0].text para mantener compatibilidad con frontend
-      content: [
-        {
-          type: 'text',
-          text: prompt
-        }
-      ],
-      // Puedes añadir parámetros opcionales aquí (temperature, maxOutputTokens, etc.) si lo deseas
-    };
+  contents: [
+    {
+      parts: [{ text: prompt }]
+    }
+  ]
+};
 
     const controller = new AbortController();
     const timeoutMs = 22000;
