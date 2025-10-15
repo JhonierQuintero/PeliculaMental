@@ -1,3 +1,5 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -25,69 +27,35 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'API Key no configurada' });
     }
 
-    console.log('📤 Llamando a Gemini 2.5 Flash...');
+    console.log('📤 Generando contenido con Gemini...');
 
-    // Probar primero con v1
-    let url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-    let response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      }),
-    });
-
-    let data = await response.json();
-
-    // Si v1 falla con 404, intentar con v1beta
-    if (!response.ok && data.error?.code === 404) {
-      console.log('⚠ v1 no funciona, probando v1beta...');
-      url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-      
-      response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: prompt }]
-          }]
-        }),
-      });
-
-      data = await response.json();
-    }
-
-    console.log('📥 Status:', response.status);
-
-    if (!response.ok) {
-      console.error('❌ Error Gemini:', JSON.stringify(data));
-      return res.status(500).json({ 
-        error: 'Error de Gemini API', 
-        details: data,
-        urlUsada: url
-      });
-    }
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // Inicializar cliente con SDK oficial
+    const genAI = new GoogleGenerativeAI(apiKey);
     
+    // Usar gemini-pro que es el más compatible
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    // Generar contenido
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
     if (!text) {
-      console.error('❌ Sin texto:', JSON.stringify(data));
-      return res.status(500).json({ 
-        error: 'Sin respuesta de Gemini',
-        data: data 
-      });
+      console.error('❌ Sin texto en respuesta');
+      return res.status(500).json({ error: 'Gemini no devolvió texto' });
     }
 
-    console.log('✅ Respuesta recibida correctamente');
+    console.log('✅ Texto recibido:', text.substring(0, 150) + '...');
+    
+    // Devolver el texto directamente (tu frontend lo parseará)
     return res.status(200).json(text);
 
   } catch (error) {
-    console.error("💥 Error:", error.message);
+    console.error("💥 Error completo:", error);
     return res.status(500).json({ 
-      error: "Error del servidor",
-      message: error.message
+      error: "Error al generar contenido",
+      message: error.message,
+      details: error.toString()
     });
   }
 };
