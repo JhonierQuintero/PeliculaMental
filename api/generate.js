@@ -1,5 +1,4 @@
 module.exports = async (req, res) => {
-  // Habilitar CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -19,17 +18,18 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Falta el prompt' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY;
     
     if (!apiKey) {
-      console.error('❌ GEMINI_API_KEY no configurada');
+      console.error('❌ GOOGLE_API_KEY no configurada');
       return res.status(500).json({ error: 'API Key no configurada' });
     }
 
     console.log('📤 Llamando a Gemini...');
 
+    // CAMBIADO: v1 en lugar de v1beta y sin -latest
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
     if (!response.ok) {
       const errorData = await response.text();
       console.error('❌ Error Gemini:', errorData);
-      return res.status(500).json({ error: 'Error de Gemini API' });
+      return res.status(500).json({ error: 'Error de Gemini API', details: errorData });
     }
 
     const data = await response.json();
