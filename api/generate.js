@@ -18,55 +18,76 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Falta el prompt' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY;
     
     if (!apiKey) {
       console.error('❌ GOOGLE_API_KEY no configurada');
       return res.status(500).json({ error: 'API Key no configurada' });
     }
 
-    console.log('📤 Llamando a Gemini...');
+    console.log('📤 Llamando a Gemini 2.5 Flash...');
 
-    // CAMBIADO: v1 en lugar de v1beta y sin -latest
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
+    // Probar primero con v1
+    let url = https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey};
+    let response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      }),
+    });
+
+    let data = await response.json();
+
+    // Si v1 falla con 404, intentar con v1beta
+    if (!response.ok && data.error?.code === 404) {
+      console.log('⚠ v1 no funciona, probando v1beta...');
+      url = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey};
+      
+      response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{
-            role: "user",
             parts: [{ text: prompt }]
-          }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          }
+          }]
         }),
-      }
-    );
+      });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('❌ Error Gemini:', errorData);
-      return res.status(500).json({ error: 'Error de Gemini API', details: errorData });
+      data = await response.json();
     }
 
-    const data = await response.json();
+    console.log('📥 Status:', response.status);
+
+    if (!response.ok) {
+      console.error('❌ Error Gemini:', JSON.stringify(data));
+      return res.status(500).json({ 
+        error: 'Error de Gemini API', 
+        details: data,
+        urlUsada: url
+      });
+    }
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     
     if (!text) {
-      return res.status(500).json({ error: 'Sin respuesta de Gemini' });
+      console.error('❌ Sin texto:', JSON.stringify(data));
+      return res.status(500).json({ 
+        error: 'Sin respuesta de Gemini',
+        data: data 
+      });
     }
 
-    console.log('✅ Respuesta recibida');
+    console.log('✅ Respuesta recibida correctamente');
     return res.status(200).json(text);
 
   } catch (error) {
-    console.error("💥 Error:", error);
+    console.error("💥 Error:", error.message);
     return res.status(500).json({ 
       error: "Error del servidor",
-      message: error.message 
+      message: error.message
     });
   }
 };
