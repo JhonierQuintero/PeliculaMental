@@ -1,11 +1,29 @@
 export default async function handler(req, res) {
-  try {
-    const { goal } = await req.json(); // si usas Next 13 en Vercel Edge
-    const apiKey = process.env.GOOGLE_API_KEY;
+  // Solo acepta POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
 
-    // 🔹 Llamada directa a la API de Gemini o PaLM (Google)
+  try {
+    // En Vercel con Next.js usa req.body directamente
+    const { prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Falta el prompt' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      console.error('❌ GEMINI_API_KEY no está configurada');
+      return res.status(500).json({ error: 'API Key no configurada' });
+    }
+
+    console.log('📤 Enviando prompt a Gemini...');
+
+    // Llamada a la API de Gemini
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -15,39 +33,80 @@ export default async function handler(req, res) {
               role: "user",
               parts: [
                 {
-                  text: `Eres un asistente que crea listas de tareas. Genera un JSON válido con tareas para este objetivo: ${goal}. 
-El formato debe ser:
-{
-  "tasks": [
-    {"title": "nombre", "description": "detalles"},
-    ...
-  ]
-}`
+                  text: prompt
                 }
               ]
             }
-          ]
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          }
         }),
       }
     );
 
-    const data = await response.json();
-    console.log("Respuesta API:", data);
-
-    // 🔹 Extraer texto de la IA
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    // 🔹 Intentar parsear como JSON
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = { tasks: [{ title: "Error", description: "No se pudo parsear JSON" }] };
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Error de Gemini API:', errorData);
+      return res.status(response.status).json({ 
+        error: `Error de Gemini API: ${response.status}`,
+        details: errorData 
+      });
     }
 
-    return res.status(200).json(json);
+    const data = await response.json();
+    console.log("✅ Respuesta de Gemini recibida");
+
+    // Extraer el texto de la respuesta de Gemini
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    
+    if (!text) {
+      console.error('❌ No se recibió texto de Gemini:', data);
+      return res.status(500).json({ 
+        error: 'Gemini no devolvió texto',
+        data: data 
+      });
+    }
+
+    console.log("📝 Texto recibido:", text.substring(0, 200) + "...");
+
+    // Intentar extraer JSON del texto
+    let jsonResponse;
+    try {
+      // Primero intentar parsear directamente
+      jsonResponse = JSON.parse(text);
+    } catch {
+      // Si falla, buscar el JSON dentro del texto
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          jsonResponse = JSON.parse(match[0]);
+        } catch (e) {
+          console.error('❌ Error al parsear JSON extraído:', e);
+          return res.status(500).json({ 
+            error: 'No se pudo parsear el JSON',
+            rawText: text 
+          });
+        }
+      } else {
+        console.error('❌ No se encontró JSON en la respuesta');
+        return res.status(500).json({ 
+          error: 'No se encontró JSON válido en la respuesta',
+          rawText: text 
+        });
+      }
+    }
+
+    // Devolver el texto tal cual para que el frontend lo procese
+    // (tu frontend ya tiene la lógica de parsing)
+    return res.status(200).json(text);
+
   } catch (error) {
-    console.error("Error en generate.js:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
+    console.error("💥 Error en /api/generate:", error);
+    return res.status(500).json({ 
+      error: "Error interno del servidor",
+      message: error.message 
+    });
   }
 }
