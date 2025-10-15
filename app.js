@@ -64,19 +64,41 @@ async function callAIToGenerateTasks(prompt) {
   let json;
 
   try {
+    // Intentar directamente
     json = JSON.parse(raw);
   } catch {
+    // Intentar rescatar bloque JSON si viene mezclado con texto
     const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('La IA no devolvió una lista de tareas válida.');
-    json = JSON.parse(match[0]);
+    if (match) {
+      try {
+        json = JSON.parse(match[0]);
+      } catch {
+        console.warn("No se pudo parsear el bloque JSON. Texto devuelto:", raw);
+        throw new Error("La IA devolvió un formato no compatible.");
+      }
+    } else {
+      console.warn("Texto sin JSON:", raw);
+      throw new Error("La IA no devolvió una lista de tareas válida.");
+    }
   }
 
-  if (!Array.isArray(json.tasks)) {
-    throw new Error('La IA no devolvió una lista de tareas válida.');
+  // Intentar detectar lista aunque no esté dentro de "tasks"
+  let tasks = Array.isArray(json.tasks) ? json.tasks : null;
+
+  // Si no hay "tasks", buscar posibles tareas en texto plano
+  if (!tasks) {
+    const possibleTasks = raw.match(/(?:Paso|Tarea|Objetivo)\s*\d*[:\-]\s*[^\n]+/gi);
+    if (possibleTasks) {
+      tasks = possibleTasks.map((t, i) => ({
+        title: `Paso ${i + 1}`,
+        description: t.replace(/^(Paso|Tarea|Objetivo)\s*\d*[:\-]?\s*/i, "").trim(),
+      }));
+    }
   }
 
-  console.log("Respuesta completa de la IA:", json);
-  return json.tasks;
+  if (!tasks) throw new Error("La IA no devolvió una lista de tareas válida.");
+  console.log("✅ Respuesta limpia de la IA:", tasks);
+  return tasks;
 }
 
 // --- Llamada segura a la API ---
