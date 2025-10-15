@@ -60,45 +60,41 @@ ui.goalForm.addEventListener('submit', async (e) => {
 
 // --- Función principal: Llamar a la IA ---
 async function callAIToGenerateTasks(prompt) {
-  const raw = await callSecureAPI(prompt);
-  let json;
-
   try {
-    // Intentar directamente
-    json = JSON.parse(raw);
-  } catch {
-    // Intentar rescatar bloque JSON si viene mezclado con texto
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) {
-      try {
+    const raw = await callSecureAPI(prompt);
+    console.log("🔹 Respuesta sin procesar:", raw);
+
+    let json;
+    try {
+      // Intentar parsear directamente
+      json = JSON.parse(raw);
+    } catch {
+      // Buscar un bloque JSON en caso de que haya texto extra
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) {
         json = JSON.parse(match[0]);
-      } catch {
-        console.warn("No se pudo parsear el bloque JSON. Texto devuelto:", raw);
-        throw new Error("La IA devolvió un formato no compatible.");
+      } else {
+        console.warn("⚠ No se encontró JSON, procesando texto plano.");
+        json = { tasks: raw.split(/\n+/).filter(line => line.trim() !== "").map((line, i) => ({
+          title: `Paso ${i + 1}`,
+          description: line.trim(),
+        })) };
       }
-    } else {
-      console.warn("Texto sin JSON:", raw);
-      throw new Error("La IA no devolvió una lista de tareas válida.");
     }
-  }
 
-  // Intentar detectar lista aunque no esté dentro de "tasks"
-  let tasks = Array.isArray(json.tasks) ? json.tasks : null;
-
-  // Si no hay "tasks", buscar posibles tareas en texto plano
-  if (!tasks) {
-    const possibleTasks = raw.match(/(?:Paso|Tarea|Objetivo)\s*\d*[:\-]\s*[^\n]+/gi);
-    if (possibleTasks) {
-      tasks = possibleTasks.map((t, i) => ({
-        title: `Paso ${i + 1}`,
-        description: t.replace(/^(Paso|Tarea|Objetivo)\s*\d*[:\-]?\s*/i, "").trim(),
-      }));
+    // Validar estructura final
+    if (!json.tasks || !Array.isArray(json.tasks) || json.tasks.length === 0) {
+      throw new Error("Respuesta vacía o inválida de la IA.");
     }
-  }
 
-  if (!tasks) throw new Error("La IA no devolvió una lista de tareas válida.");
-  console.log("✅ Respuesta limpia de la IA:", tasks);
-  return tasks;
+    console.log("✅ Tareas generadas:", json.tasks);
+    return json.tasks;
+
+  } catch (err) {
+    console.error("❌ Error en callAIToGenerateTasks:", err);
+    alert("Ocurrió un problema al generar tu plan. Intenta nuevamente.");
+    return []; // Evita reinicio y mantiene la app estable
+  }
 }
 
 // --- Llamada segura a la API ---
