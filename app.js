@@ -128,43 +128,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showScreen('loading');
 
-    async function callAIToGenerateTasks(prompt) {
-  const raw = await callSecureAPI(prompt);
-  console.log("Respuesta sin procesar de la IA:", raw);
-  let json;
-
-  try {
-    // Intentar parsear directamente
-    json = JSON.parse(raw);
-  } catch {
-    // Si no es JSON puro, intentar extraer el bloque JSON de todo el texto
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) {
-      throw new Error("La IA no devolvió una lista de tareas válida.");
-    }
-
     try {
-      json = JSON.parse(match[0]);
-    } catch (e) {
-      console.error("Error al parsear JSON extraído:", e);
-      throw new Error("La IA devolvió un JSON malformado.");
+      state.tasks = await callAIToGenerateTasks(state.userInput);
+      saveState();
+      renderPlanner();
+    } catch (error) {
+      console.error('Error al generar tareas:', error);
+      showError(`No se pudieron generar las tareas: ${error.message}`);
+      showScreen('setup');
     }
   }
 
-  // Normalizar estructura por si viene diferente
-  if (!json.tasks && Array.isArray(json)) {
-    json = { tasks: json }; // Si devuelve directamente una lista
-  }
-
-  if (!Array.isArray(json.tasks)) {
-    console.error("JSON recibido pero sin 'tasks':", json);
-    throw new Error("La IA no devolvió una lista de tareas válida.");
-  }
-
-  console.log("Respuesta procesada de la IA:", json);
-  return json.tasks;
-}
-}
 
   async function handleChatSubmit(e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
@@ -230,20 +204,35 @@ Instrucciones: Devuelve SOLO un objeto JSON válido con la estructura: {"tasks":
 Genera entre 12 y 18 tareas agrupadas en Acto I, Acto II y Acto III.`;
 
     const raw = await callSecureAPI(prompt);
+    console.log("Respuesta sin procesar de la IA:", raw);
+    
+    let json;
     try {
-      return JSON.parse(raw).tasks;
-    } catch (_) {
-      const j = extractJsonFromString(raw);
-      if (j && Array.isArray(j.tasks)) return j.tasks;
-      const fallbackTasks = raw
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(l => l.length > 5)
-        .slice(0, 18)
-        .map((t, i) => ({ category: i < 6 ? 'Acto I' : i < 12 ? 'Acto II' : 'Acto III', task: t }));
-      if (fallbackTasks.length === 0) throw new Error('Respuesta de la IA no entendible.');
-      return fallbackTasks;
+      json = JSON.parse(raw);
+    } catch {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (!match) {
+        throw new Error("La IA no devolvió una lista de tareas válida.");
+      }
+      try {
+        json = JSON.parse(match[0]);
+      } catch (e) {
+        console.error("Error al parsear JSON extraído:", e);
+        throw new Error("La IA devolvió un JSON malformado.");
+      }
     }
+
+    if (!json.tasks && Array.isArray(json)) {
+      json = { tasks: json };
+    }
+
+    if (!Array.isArray(json.tasks)) {
+      console.error("JSON recibido pero sin 'tasks':", json);
+      throw new Error("La IA no devolvió una lista de tareas válida.");
+    }
+
+    console.log("Respuesta procesada de la IA:", json);
+    return json.tasks;
   }
 
   async function callChatbotAI(fullHistory) {
