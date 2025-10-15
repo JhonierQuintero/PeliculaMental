@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!Array.isArray(json.tasks)) {
     throw new Error('La IA no devolvió una lista de tareas válida.');
   }
-
+  console.log("Respuesta completa de la IA:", json);
   return json.tasks;
 }
   }
