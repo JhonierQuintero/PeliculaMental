@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tu Película Mental — Planificador</title>
+
+  <!-- Fuentes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="./styles.css">
+
+  <!-- Librerías PDF (CDN confiable) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoVBL5gI9kLmbGaaBclicTGGPSiCVg==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+
+  <meta name="description" content="Convierte tu visión en un plan accionable con la ayuda de IA. Crea tareas, chatea con tu coach y exporta a PDF." />
+</head>
+<body class="theme-sunrise" data-page="planner-app">
+  <audio id="background-music" loop aria-hidden="true"></audio>
+
+  <div class="container" role="main">
+    <!-- Welcome -->
+    <section id="welcome-screen" class="screen active" aria-hidden="false">
+      <div class="hero">
+        <div class="hero-left">
+          <h1 class="main-title">Construye tu <span>Película Mental</span></h1>
+          <p class="lead">Transforma tu visión en metas claras, tareas accionables y un guion para tu vida.</p>
+          <div class="hero-cta">
+            <button id="start-btn" class="btn btn-primary">Comenzar</button>
+            <button id="how-btn" class="btn btn-ghost" onclick="document.getElementById('setup-screen').scrollIntoView({behavior:'smooth'})">Cómo funciona</button>
+          </div>
+        </div>
+        <div class="hero-right" aria-hidden="true">
+          <div class="device-mockup">
+            <svg viewBox="0 0 400 300" class="mock-shape" aria-hidden="true">
+              <defs><linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#FF8A65"/><stop offset="1" stop-color="#F06292"/></linearGradient></defs>
+              <rect width="400" height="300" rx="18" fill="url(#g1)"></rect>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Setup / Form -->
+    <section id="setup-screen" class="screen" aria-hidden="true">
+      <form id="planner-form" class="card form-card" novalidate>
+        <div class="form-grid">
+          <div class="form-left">
+            <h2 class="section-title">El guion de tu vida</h2>
+            <div id="error-container" class="error-message hidden" role="alert" aria-live="polite"></div>
+
+            <label class="field">
+              <span class="label-text">Título de la Película</span>
+              <input id="movie-title" name="movie-title" type="text" placeholder="Ej: El Viaje del Innovador" required>
+            </label>
+
+            <div class="row-two">
+              <label class="field">
+                <span class="label-text">Género</span>
+                <input id="movie-genre" name="movie-genre" type="text" placeholder="Aventura / Creación">
+              </label>
+              <label class="field">
+                <span class="label-text">Protagonista</span>
+                <input id="movie-protagonist" name="movie-protagonist" type="text" placeholder="Ej: Tú, el creador">
+              </label>
+            </div>
+
+            <h3 class="sub-title">Metas</h3>
+            <label class="field">
+              <span class="label-text">Acto I (2 años)</span>
+              <textarea id="goal-2y" name="goal-2y" rows="3" placeholder="Ej: Aprender IA" required></textarea>
+            </label>
+            <label class="field">
+              <span class="label-text">Acto II (5 años)</span>
+              <textarea id="goal-5y" name="goal-5y" rows="3" placeholder="Ej: Lanzar un producto"></textarea>
+            </label>
+            <label class="field">
+              <span class="label-text">Acto III (10 años)</span>
+              <textarea id="goal-10y" name="goal-10y" rows="3" placeholder="Ej: Impactar mi comunidad"></textarea>
+            </label>
+
+          </div>
+
+          <aside class="form-right" aria-hidden="false">
+            <h4 class="section-title small">Banda sonora</h4>
+            <label for="music" class="music-upload">
+              <input id="music" name="music" type="file" accept="audio/*" />
+              <div class="music-placeholder" id="music-file-name">Seleccionar banda sonora</div>
+            </label>
+
+            <div class="tips">
+              <h5>Consejos rápidos</h5>
+              <ul>
+                <li>Escribe metas específicas y medibles.</li>
+                <li>Piensa en el protagonista como tu mejor versión.</li>
+                <li>Sube una canción que te motive para el plan.</li>
+              </ul>
+            </div>
+
+            <div class="actions-stack">
+              <button type="submit" class="btn btn-primary wide">Generar Plan</button>
+              <button type="button" id="reset-btn-mobile" class="btn btn-ghost wide">Cancelar</button>
+            </div>
+          </aside>
+        </div>
+      </form>
+    </section>
+
+    <!-- Loading -->
+    <section id="loading-screen" class="screen" aria-hidden="true">
+      <div class="loading-card">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="muted">La IA está transformando tu visión en un plan. Esto puede tardar unos segundos...</p>
+      </div>
+    </section>
+
+    <!-- Planner -->
+    <section id="planner-screen" class="screen" aria-hidden="true">
+      <div id="pdf-content" class="planner-card">
+        <header class="planner-header">
+          <div>
+            <h1 id="planner-title" class="planner-title">—</h1>
+            <p id="planner-subtitle" class="muted">—</p>
+          </div>
+          <div class="planner-actions">
+            <button id="export-pdf-btn" class="btn btn-outline">Exportar PDF</button>
+            <button id="reset-btn" class="btn btn-ghost">Empezar de nuevo</button>
+          </div>
+        </header>
+
+        <section class="progress-wrap">
+          <div class="progress-left">
+            <div class="progress-bar-bg" aria-hidden="true">
+              <div id="progress-bar" class="progress-bar-fg" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="progress-right">
+            <span id="progress-text" class="progress-text">0% Completado</span>
+          </div>
+        </section>
+
+        <section id="task-list" class="task-list" aria-live="polite"></section>
+      </div>
+    </section>
+  </div>
+
+  <!-- Floating controls & chat -->
+  <aside id="floating-controls" class="floating hidden" aria-hidden="true">
+    <div class="theme-switcher">
+      <button class="theme-btn" data-theme="theme-sunrise" title="Amanecer"></button>
+      <button class="theme-btn" data-theme="theme-oceanic" title="Océano"></button>
+      <button class="theme-btn" data-theme="theme-sakura" title="Sakura"></button>
+    </div>
+    <button id="toggle-chat-btn" class="btn-chat" aria-label="Abrir chat">🤖</button>
+  </aside>
+
+  <aside id="chatbot-container" class="chatbot" aria-hidden="true">
+    <div class="chat-header">
+      <strong>Tu Coach IA</strong>
+      <span class="small muted">Guionista del Destino</span>
+    </div>
+    <div id="chat-messages" class="chat-window" tabindex="0"></div>
+    <form id="chat-form" class="chat-form">
+      <input id="chat-input" type="text" placeholder="Pide consejo..." autocomplete="off" required />
+      <button type="submit" class="btn btn-primary small">Enviar</button>
+    </form>
+  </aside>
+
+  <!-- App script -->
+  <script src="./app.js" defer></script>
+</body>
+</html>
