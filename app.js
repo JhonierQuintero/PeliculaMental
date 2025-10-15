@@ -128,18 +128,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     showScreen('loading');
 
-    try {
-      const aiTasks = await callAIToGenerateTasks(state.userInput);
-      if (!Array.isArray(aiTasks)) throw new Error('La IA no devolvió una lista de tareas válida.');
-      state.tasks = aiTasks.map(task => ({ ...task, completed: false }));
-      state.chatHistory = [];
-      renderPlanner();
-      saveState();
-    } catch (error) {
-      console.error('Error al generar el plan:', error);
-      showError(`Error al generar tu plan: ${error.message || error}.`);
-      showScreen('setup');
-    }
+    async function callAIToGenerateTasks(prompt) {
+  const raw = await callSecureAPI(prompt);
+  let json;
+
+  // Intentar parsear JSON directamente
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    // Si hay texto extra, buscar solo el bloque JSON
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('La IA no devolvió una lista de tareas válida.');
+    json = JSON.parse(match[0]);
+  }
+
+  if (!Array.isArray(json.tasks)) {
+    throw new Error('La IA no devolvió una lista de tareas válida.');
+  }
+
+  return json.tasks;
+}
   }
 
   async function handleChatSubmit(e) {
