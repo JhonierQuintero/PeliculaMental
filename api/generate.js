@@ -28,7 +28,7 @@ module.exports = async (req, res) => {
     console.log('📤 Llamando a Gemini 2.5 Flash...');
 
     // Probar primero con v1
-    let url = https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey};
+    let url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     let response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
     // Si v1 falla con 404, intentar con v1beta
     if (!response.ok && data.error?.code === 404) {
       console.log('⚠ v1 no funciona, probando v1beta...');
-      url = https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey};
+      url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       
       response = await fetch(url, {
         method: "POST",
